@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name = 'pythonfaceregressor',
-    packages = ['my_python_package'],
+    packages = ['pythonfaceregressor'],
     version = '0.1',
     description = 'Reconstruct facial appearances from predictor variables',
     author = 'Alex Jones',
