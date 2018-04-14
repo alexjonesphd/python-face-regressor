@@ -32,7 +32,7 @@ Install the ``pythonfaceregressor`` package by runnig the following from the com
 
 ``pip install pythonfaceregressor``
 
-For full functionality, open a Jupyer notebook and try:
+For full functionality, open a Jupyter notebook and try:
 
 ``import pythonfaceregressor as pyfacer``
 
