@@ -4,7 +4,7 @@ setup(
     name = 'pythonfaceregressor',
     packages = ['pythonfaceregressor'],
     version = '0.2',
-    description = 'A package for examining relationships between facial appearance and other variables'
+    description = 'A package for examining relationships between facial appearance and other variables',
     author = 'Alex Jones',
     author_email = 'alexjonesphd@gmail.com',
     url = 'https://github.com/alexjonesphd/python-face-regressor',
