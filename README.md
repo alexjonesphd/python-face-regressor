@@ -9,4 +9,38 @@ Given a set of facial photographs, associated facial landmarks, and a set of att
 
 ### Dependencies
 
-``pythonfaceregressor`` requires:
+``pythonfaceregressor`` requires the following packages, and full functionality requires a Jupyter notebook.
+
+* Python (>= 3.6)
+* NumPy (>= 1.14.0)
+* SciPy (>= 1.0.0)
+* pandas (>= 0.22.0)
+* scikit-image (>= 0.13.1)
+* Python Image Library (>= 5.0.0)
+* OpenCV2 (>= 3.3.1)
+
+Running the ``visualiser`` module of ``pythonfaceregressor`` also requires Bokeh >= 0.12.13, running from within a Jupyter notebook.
+
+### User installation
+The easiest way to obtain the full range of dependecies for the package is to install the [Anaconda distribution](https://www.anaconda.com/download/), which provides stable releases of all the data science tools depends on, except for OpenCV. To install OpenCV, run from the command line:
+
+``pip install opencv-python``
+
+This should install the stable Python 3.4 version of OpenCV, that works well with the Anaconda distribution.
+
+Install the ``pythonfaceregressor`` package by runnig the following from the command line:
+
+``pip install pythonfaceregressor``
+
+For full functionality, open a Jupyer notebook and try:
+
+``import pythonfaceregressor as pyfacer``
+
+### User instructions
+Full instructions on using the package can be found in the accompanying Jupyter notebook, and in the academic publication below.
+
+### Citations
+If you use the package in a scientific publication, please cite the following forthcoming paper:
+
+INSERT PAPER TITLE HERE
+
