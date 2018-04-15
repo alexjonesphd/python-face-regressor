@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name = 'pythonfaceregressor',
     packages = ['pythonfaceregressor'],
-    version = '0.2',
+    version = '0.3',
     description = 'A package for examining relationships between facial appearance and other variables',
     author = 'Alex Jones',
     author_email = 'alexjonesphd@gmail.com',
