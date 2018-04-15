@@ -8,7 +8,7 @@ setup(
     author = 'Alex Jones',
     author_email = 'alexjonesphd@gmail.com',
     url = 'https://github.com/alexjonesphd/python-face-regressor',
-    download_url = 'https://github.com/alexjonesphd/python-face-regressor/archive/v0.1.tar.gz',
+    download_url = 'https://github.com/alexjonesphd/python-face-regressor/archive/v0.3.tar.gz',
     keywords = ['faces', 'regression'],
     classifiers = [],
 )
