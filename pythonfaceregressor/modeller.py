@@ -183,6 +183,14 @@ class Modeller():
 
         # Give the object access to average face shape
         self.average_shape = average_shape
+        
+        # Compute the average face appearance and give object access
+        R = np.dstack( [gathered[face]['channel_one'] for face in gathered] ).mean(axis = 2)
+        G = np.dstack( [gathered[face]['channel_two'] for face in gathered] ).mean(axis = 2)
+        B = np.dstack( [gathered[face]['channel_three'] for face in gathered] ).mean(axis = 2)
+        image = np.dstack( (R, G, B) ).astype('uint8')
+        
+        self.average_face = image
 
         # Set the gathered dictionary data as an attribute
         self.gathered_data = gathered
