@@ -130,7 +130,7 @@ class Modeller():
             # Extract the landmarks from associated template file
             try:
                 xy, line_data = self.__get_LMs( face + template_extension )
-            except:
+            except FileNotFoundError:
                 raise ValueError( 'Missing template file for face: ' + face )
 
             gathered[face] = {'shape' : xy}
