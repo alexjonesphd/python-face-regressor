@@ -188,9 +188,9 @@ class Modeller():
         R = np.dstack( [gathered[face]['channel_one'] for face in gathered] ).mean(axis = 2)
         G = np.dstack( [gathered[face]['channel_two'] for face in gathered] ).mean(axis = 2)
         B = np.dstack( [gathered[face]['channel_three'] for face in gathered] ).mean(axis = 2)
-        image = np.dstack( (R, G, B) ).astype('uint8')
+        image = np.dstack( (R, G, B) )
         
-        self.average_face = image
+        self.average_face = image.astype('uint8')
 
         # Set the gathered dictionary data as an attribute
         self.gathered_data = gathered
