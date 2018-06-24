@@ -41,15 +41,11 @@ User installation
 
 The easiest way to obtain the full range of dependecies for the package
 is to install the `Anaconda distribution`_, which provides stable
-releases of all the data science tools depends on, except for OpenCV. To
-install OpenCV, run from the command line:
+releases of all the data science tools depends on, except for OpenCV. 
 
-``pip install opencv-python``
+OpenCV can then easily be installed from Anaconda's interactive package manager.
 
-This should install the stable Python 3.4 version of OpenCV, that works
-well with the Anaconda distribution.
-
-Install the ``pythonfaceregressor`` package by runnig the following from
+Install the ``pythonfaceregressor`` package by running the following from
 the command line:
 
 ``pip install pythonfaceregressor``
