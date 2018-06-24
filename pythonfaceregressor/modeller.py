@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import skimage.io
 
+from collections import defaultdict
 from scipy.stats import zscore
 
 from . import warper
@@ -52,8 +53,11 @@ class Modeller():
 
         # Prepare index-name mapping. This is a list of trait identifiers, and the numbers of the columns they are in. Stores the list itself and the mapping, which is useful later.
         traits = master_data_frame.columns.tolist()
-        mapping = dict(zip(traits, range(0, len(traits))))
+        
+        # Initialise a defaultdict, so any responses omitted in the .predict method are expressed as zero
+        mapping = defaultdict(lambda: 0, zip(traits, range(0, len(traits))))
 
+        # Set as attributes
         self.trait_list = traits
         self.mapping = mapping
 
@@ -395,12 +399,14 @@ class Modeller():
         ----------
         **predict_values : Keyword and values that represent the predictors and the desired weight to predict by.
                            These must match the column headers used in the DataFrame the Modeller object was instantiated with,
-                           as these are inherited. Keywords and values can be passed as a dictionary.
+                           as these are inherited. Keywords and values can be passed as a dictionary. 
 
                            Example assuming predictors are 'Sex' and 'Attractiveness':
 
                            Standard usage - Modeller.predict(Sex = 1, Attractiveness = 4)
                            Dictionary usage - Modeller.predict({'Sex':1, 'Attractiveness':4})
+                           
+                           Any parameters that are omitted are automatically set to zero due to utilisation of a defaultdict behind the scenes.
 
 
         Returns
