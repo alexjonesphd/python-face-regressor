@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import skimage.io
 
-from collections import defaultdict
 from scipy.stats import zscore
 
 from . import warper
