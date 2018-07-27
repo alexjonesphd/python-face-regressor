@@ -458,8 +458,8 @@ class Modeller():
             # Retrieve the broadcast factor again using the keyword provided, this will extract the value to be predicted from the keyword dictionary.
             broadcast = predict_values[ traits ]
 
-            # Make the string and append it
-            form_str.append( traits + str( broadcast ) )
+            # Make the string and append it, joining with an underscore
+            form_str.append( traits + '_' + str( broadcast ) )
 
             # Carry out broadcasting - finally, this will take the index and slice the slope_matrix array, broadcasting the predicted value across all slopes and reassigning it.
             shape_slopes[:, :, index] *= broadcast
