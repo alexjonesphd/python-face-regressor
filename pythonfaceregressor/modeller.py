@@ -54,8 +54,8 @@ class Modeller():
         # Prepare index-name mapping. This is a list of trait identifiers, and the numbers of the columns they are in. Stores the list itself and the mapping, which is useful later.
         traits = master_data_frame.columns.tolist()
         
-        # Initialise a defaultdict, so any responses omitted in the .predict method are expressed as zero
-        mapping = defaultdict(lambda: 0, zip(traits, range(0, len(traits))))
+        # Initialise a dict to store mappings of traits to index locations
+        mapping = dict(zip(traits, range(0, len(traits))))
 
         # Set as attributes
         self.trait_list = traits
@@ -406,7 +406,8 @@ class Modeller():
                            Standard usage - Modeller.predict(Sex = 1, Attractiveness = 4)
                            Dictionary usage - Modeller.predict({'Sex':1, 'Attractiveness':4})
                            
-                           Any parameters that are omitted are automatically set to zero due to utilisation of a defaultdict behind the scenes.
+                           Any parameters that are omitted will contribute to the final appearance, though by a small amount. 
+                           To remove influences of a particular trait, set its value to zero explicitly.
 
 
         Returns
