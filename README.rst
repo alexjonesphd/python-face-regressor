@@ -57,8 +57,7 @@ For full functionality, open a Jupyter notebook and try:
 User instructions
 ~~~~~~~~~~~~~~~~~
 
-Full instructions on using the package can be found in the accompanying
-Jupyter notebook, and in the academic publication below.
+Full instructions on using the package can be found in the Jupyter notebooks hosted at the `Open Science Framework page`_ for the project, and in the academic publication below.
 
 Citations
 ~~~~~~~~~
@@ -69,3 +68,4 @@ following forthcoming paper:
 INSERT PAPER TITLE HERE
 
 .. _Anaconda distribution: https://www.anaconda.com/download/
+.. _Open Science Framework page: https://osf.io/q5wvn
