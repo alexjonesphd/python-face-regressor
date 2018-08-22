@@ -15,7 +15,7 @@ from scipy.stats import zscore
 from . import warper
 
 class Modeller():
-    """ Object to model relationships between facial appearance and multiple predictors. Upon instantiation, the class requires a pandas dataframe where the index column is a string describing a face that should match with a template AND image in the current folder,
+    """ Object to model relationships between facial appearance and multiple predictors. Upon instantiation, the class requires a Pandas dataframe where the index column is a string describing a face that should match with a template AND image in the current folder,
     Each column should be the values of the predictor(s), with a suitable header. The class methods then gather the data and creates an array of slopes that matches the size of the shape or image inputs,
     but with entries along axis 2 that map to the number of predictors.
 
@@ -52,7 +52,7 @@ class Modeller():
 
         # Prepare index-name mapping. This is a list of trait identifiers, and the numbers of the columns they are in. Stores the list itself and the mapping, which is useful later.
         traits = master_data_frame.columns.tolist()
-        
+
         # Initialise a dict to store mappings of traits to index locations
         mapping = dict(zip(traits, range(0, len(traits))))
 
@@ -186,13 +186,13 @@ class Modeller():
 
         # Give the object access to average face shape
         self.average_shape = average_shape
-        
+
         # Compute the average face appearance and give object access
         R = np.dstack( [gathered[face]['channel_one'] for face in gathered] ).mean(axis = 2)
         G = np.dstack( [gathered[face]['channel_two'] for face in gathered] ).mean(axis = 2)
         B = np.dstack( [gathered[face]['channel_three'] for face in gathered] ).mean(axis = 2)
         image = np.dstack( (R, G, B) )
-        
+
         self.average_face = image.astype('uint8')
 
         # Set the gathered dictionary data as an attribute
@@ -201,73 +201,78 @@ class Modeller():
         return self
 
 
-    def __dictionary_extractor(self, index_value, parameter_key, predictors, gathered_data = None):
-        """Extracts predictors from the dictionary, creating a matrix of predictors and a vector to regress against.
-        How this function is called will depend on the inputs that are provided to the FIT function, described below. It will need to return shape or
-        Red, Green, Blue values from the dictiionary along with traits."""
+    def __assemble_multivariate(self, parameter_key, parameter_dims, gathered_data = None):
+        """Convenience function to extract from the gathered data and assemble the face parameters - shape and colour - and predictor values into a pair of arrays.
+        Each array is matched on the rows to represent measurements of that face parameter and the predictors, for a subject.
+
+        Returns
+        ----------
+        y_array : An array containing the measured parameters for the faces, either shape or colour values, a row per observation. Data is extracted from the gathered data.
+        x_array : An array containing predictor values, matched on the rows to the faces. 
+        """
 
         if gathered_data is None:
             gathered_data = self.gathered_data
 
-        # Preallocate the list to hold the retrieved values from the dictionary
-        retrieved_values = []
+        # Compute the dimensions of arrays #
 
-        # Iterate over the dictionary keys (face IDs) and retrieve the required parameter data and trait values
-        for faces in gathered_data:
+        # N obs is the number of rows in master data
+        n_obs = self.master_data_frame.shape[0]
 
-            # Create container list that will grow with the requested values from the user: parameter is the first entry
-            this_face_data = []
+        # x_dims is the number of IV's, so columns of master data
+        x_dims = self.master_data_frame.shape[1]
 
-            # From the face key, pull the parameter (shape or colour channel), then pull the index value, e.g. point 0,0 or point 0,1 etc
-            this_face_data.append( gathered_data[faces][parameter_key][index_value] )
+        # y_dims will be the product of the dimensions of shape or colour data
+        y_dims = np.prod(parameter_dims)
 
-            # With shape coordinate or pixel value, retrieve the traits specified in *traits, iterating over them and appending to this_face_data
-            for trait in predictors:
-                this_face_data.append( gathered_data[faces][trait]  )
+        # Preallocate the arrays
+        y_array = np.empty((n_obs, y_dims))
+        x_array = np.empty((n_obs, x_dims))
 
-            # Finally, append this_face_data to our master container, retrieved_values.
-            retrieved_values.append(this_face_data)
+        # Iterate over the dictionary values and extract, using enumerate to index preallocated arrays
+        # The order the faces are returned is not important, but locking the paramater to the IV's is vital
+        for index, values in enumerate(gathered_data.values()):
 
-        # Convert to numpy array for indexing and return
-        point_data = np.array( retrieved_values )
+            # Extract Y values, flatten and store
+            y_array[index, :] = values[parameter_key].flatten()
 
-        # Segment for ease of understanding, the first column is the parameter
-        y = point_data[:,0]
-        features = point_data[:,1:] # And the rest are the features
+            # Extract X values in exact order by iterating over trait list, which stores traits in order they appear in master
+            x_array[index, :] = [values[trait] for trait in self.trait_list]
 
-        return y, features
+        # Return
+        return y_array, x_array
 
 
-    def __calculate_slopes_intercept(self, y, features):
+    def __calculate_slopes_intercept(self, y_array, x_array):
         """ Calculates the slopes and intercepts for the predictors and features given. To speed things up drastically, coefficients are calculated
-        using NumPy linear algebra functions, which are extremely well optimised and shave off a lot of time. Returns a  1-D vector of slopes, which is length as the number of features, and a single intercept value.
-        Also returns a standard error of predictions, which can be used for computing significance of predictions.
+        using NumPy linear algebra functions, which are extremely well optimised.
         """
 
-        # Add in a column of ones to the input features to provide an estimate of the intercept.
-        constant_term = np.column_stack( ( features, np.ones( len(features) ) ) )
+        # Add in a column of ones to the input predictors to provide an estimate of the intercept.
+        constant_term = np.column_stack((np.ones(x_array.shape[0]), x_array))
 
-        # Now decompose into a list of slopes, same length as the list of features, where the final element is the intercept, and compute the residual of predictions
-        coefs, residual, _, _ = np.linalg.lstsq(constant_term, y, rcond = None)
+        # Using matrix algebra, decompose into linear function - first row is intercept of all values, second row onwards are slopes for each point/pixel
+        coefs, residual, _, _ = np.linalg.lstsq(constant_term, y_array, rcond = -1)
 
         # Calculate residual degrees of freedom of regression - N samples minus constant term's number of coefs (predictors plus intercept term)
-        deg_free = len(y) - len(coefs)
+        df_total = x_array.shape[0] - 1
+        df_model = x_array.shape[1] - 1 # Subtract one for intercept
+        df_error = df_total - df_model
 
         # Get the slope and intercept by indexing
-        slopes = coefs[:-1] # From start to end minus one are slopes
-        intercept = coefs[-1] # The final index is the intercept
+        intercept = coefs[0,:] # First row is the intercept
+        slopes = coefs[1:,:] # From second row to end are slopes
 
         # Finally compute the standard error of the predictions, sqrt of residual divided by residual DF
-        stand_err = np.sqrt(residual/deg_free)
+        stand_err = np.sqrt(residual/df_error)
 
         return slopes, intercept, stand_err
 
 
     def fit(self, template_dims = None, image_dims = None, n_preds = None):
         """ The workhorse of the class. Fits a regression to each element of the shape and texture data, producing a multidimensional array that
-        represents the slopes and intercepts of each element (e.g. red pixel (0, 0), y coordinate of landmark number 4, etc). This can later be modified
-        via the predict function produce predicted shapes and textures.
-        WARNING: This call will be slow for most images above 200 * 200 pixels. Please be patient and save once fitted.
+        represents the slopes and intercepts of each element (e.g. red pixel (0, 0), y coordinate of landmark number 4, etc). This can later be utilised
+        by the `.predict` function produce predicted faces.
 
         Returns
         ----------
@@ -298,91 +303,36 @@ class Modeller():
         if n_preds is None:
             n_preds = len(self.trait_list) # Get the number of traits to predict
 
-        # Preallocate all the arrays we need to fill through the fit function - one for slopes, one for intercept - for shapes AND textures
-        shape_slopes = np.empty( ( n_landmarks, n_dims, n_preds ) )
-        shape_intercepts = np.empty( ( n_landmarks, n_dims ) )
-        shape_se = np.empty( ( n_landmarks, n_dims ) )
+        # Compute weights and intercepts #
 
-        red_channel_slopes = np.empty( ( im_height, im_width, n_preds )  )
-        red_channel_intercepts = np.empty( ( im_height, im_width ) )
-        red_channel_se = np.empty( ( im_height, im_width ) )
+        # Prepare least squares arrays
+        shape_y, shape_x = self.__assemble_multivariate('shape', (n_landmarks, n_dims))
+        channel_one_y, channel_one_x = self.__assemble_multivariate('channel_one', (im_height, im_width))
+        channel_two_y, channel_two_x = self.__assemble_multivariate('channel_two', (im_height, im_width))
+        channel_three_y, channel_three_x = self.__assemble_multivariate('channel_three', (im_height, im_width))
 
-        green_channel_slopes = np.empty( ( im_height, im_width, n_preds )  )
-        green_channel_intercepts = np.empty( ( im_height, im_width ) )
-        green_channel_se = np.empty( ( im_height, im_width ) )
+        # Compute least squares solutions
+        shape_slopes, shape_intercepts, shape_se = self.__calculate_slopes_intercept(shape_y, shape_x)
+        red_channel_slopes, red_channel_intercepts, red_channel_se = self.__calculate_slopes_intercept(channel_one_y, channel_one_x)
+        green_channel_slopes, green_channel_intercepts, green_channel_se = self.__calculate_slopes_intercept(channel_two_y, channel_two_x)
+        blue_channel_slopes, blue_channel_intercepts, blue_channel_se = self.__calculate_slopes_intercept(channel_three_y, channel_three_x)
 
-        blue_channel_slopes = np.empty( ( im_height, im_width, n_preds )  )
-        blue_channel_intercepts = np.empty( ( im_height, im_width ) )
-        blue_channel_se = np.empty( ( im_height, im_width ) )
+        # Reshape to the dimensions of the model's inputs
+        self.shape_slopes = np.swapaxes(shape_slopes,0,1).reshape(n_landmarks, n_dims, n_preds)
+        self.shape_intercepts = shape_intercepts.reshape(n_landmarks, n_dims)
+        self.shape_se = shape_se.reshape(n_landmarks, n_dims)
 
-        # First, fit the shapes through iterating over the values and extracting the relevant point, fitting the model, and saving the slope, intercepts, and standard error
-        for index, _ in np.ndenumerate(shape_intercepts): # iterating over an array same size as the inputs
+        self.red_channel_slopes = np.swapaxes(red_channel_slopes, 0, 1).reshape(im_height, im_width, n_preds)
+        self.red_channel_intercepts = red_channel_intercepts.reshape(im_height, im_width)
+        self.red_channel_se = red_channel_se.reshape(im_height, im_width)
 
-            # Update user on progress
-            print( 'Predicting landmark coorindate: ' + str(index) )
+        self.green_channel_slopes = np.swapaxes(green_channel_slopes, 0, 1).reshape(im_height, im_width, n_preds)
+        self.green_channel_intercepts = green_channel_intercepts.reshape(im_height, im_width)
+        self.green_channel_se = green_channel_se.reshape(im_height, im_width)
 
-            # Unpack the index for readability
-            r, c = index
-
-            # Extract the feature and outcome measure for this landmark value. Pass the attributes trait list and gathered data from __init__ and gather_data
-            y, features = self.__dictionary_extractor(index, 'shape', self.trait_list, self.gathered_data)
-
-            # Calculate the list of slopes and scalar intercept
-            slopes, intercepts, stander = self.__calculate_slopes_intercept(y, features)
-
-            # Store the slope, intercept, and se in the same index location
-            shape_slopes[r, c, :] = slopes
-            shape_intercepts[r, c] = intercepts
-            shape_se[r, c] = stander
-
-        # Set these as attributes
-        self.shape_slopes = shape_slopes
-        self.shape_intercepts = shape_intercepts
-        self.shape_se = shape_se
-
-        # Repeat the above process for colour
-        for index, _ in np.ndenumerate(red_channel_intercepts): # Iterate over 2d structure same size as input images
-            # Update user of progress, since this can be a very slow procedure for large images
-            print( 'Predicting pixel location ' + str(index) )
-
-            # Unpack index for clarity
-            r, c = index
-
-            # Extract the pixel values and the traits for each of the three channels in one go
-            red_y, red_features = self.__dictionary_extractor(index, 'channel_one', self.trait_list, self.gathered_data)
-            green_y, green_features = self.__dictionary_extractor(index, 'channel_two', self.trait_list, self.gathered_data)
-            blue_y, blue_features = self.__dictionary_extractor(index, 'channel_three', self.trait_list, self.gathered_data)
-
-            # Calculate the slope and intercept values across the three arrays
-            red_slopes, red_intercept, red_stander = self.__calculate_slopes_intercept(red_y, red_features)
-            green_slopes, green_intercept, green_stander = self.__calculate_slopes_intercept(green_y, green_features)
-            blue_slopes, blue_intercept, blue_stander = self.__calculate_slopes_intercept(blue_y, blue_features)
-
-            # Store these in the correct position
-            red_channel_intercepts[r, c] = red_intercept
-            green_channel_intercepts[r, c] = green_intercept
-            blue_channel_intercepts[r, c] = blue_intercept
-
-            red_channel_slopes[r, c, :] = red_slopes
-            green_channel_slopes[r, c, :] = green_slopes
-            blue_channel_slopes[r, c, :] = blue_slopes
-
-            red_channel_se[r, c] = red_stander
-            green_channel_se[r, c] = green_stander
-            blue_channel_se[r, c] = blue_stander
-
-        # Once prediction is finished, set as attributes
-        self.red_channel_intercepts = red_channel_intercepts
-        self.green_channel_intercepts = green_channel_intercepts
-        self.blue_channel_intercepts = blue_channel_intercepts
-
-        self.red_channel_slopes = red_channel_slopes
-        self.green_channel_slopes = green_channel_slopes
-        self.blue_channel_slopes = blue_channel_slopes
-
-        self.red_channel_se = red_channel_se
-        self.green_channel_se = green_channel_se
-        self.blue_channel_se = blue_channel_se
+        self.blue_channel_slopes = np.swapaxes(blue_channel_slopes, 0, 1).reshape(im_height, im_width, n_preds)
+        self.blue_channel_intercepts = blue_channel_intercepts.reshape(im_height, im_width)
+        self.blue_channel_se = blue_channel_se.reshape(im_height, im_width)
 
         return self
 
@@ -398,14 +348,14 @@ class Modeller():
         ----------
         **predict_values : Keyword and values that represent the predictors and the desired weight to predict by.
                            These must match the column headers used in the DataFrame the Modeller object was instantiated with,
-                           as these are inherited. Keywords and values can be passed as a dictionary. 
+                           as these are inherited. Keywords and values can be passed as a dictionary.
 
                            Example assuming predictors are 'Sex' and 'Attractiveness':
 
                            Standard usage - Modeller.predict(Sex = 1, Attractiveness = 4)
                            Dictionary usage - Modeller.predict({'Sex':1, 'Attractiveness':4})
-                           
-                           Any parameters that are omitted will contribute to the final appearance, though by a small amount. 
+
+                           Any parameters that are omitted will contribute to the final appearance, though by a small amount.
                            To remove influences of a particular trait, set its value to zero explicitly.
 
 
