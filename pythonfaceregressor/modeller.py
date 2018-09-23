@@ -264,7 +264,6 @@ class Modeller():
             y_array = pd.DataFrame(data=y_array, index=face_id)
             x_array = pd.DataFrame(data=x_array, index=face_id, columns=self.trait_list)
                                    
-        
         return y_array, x_array
 
 
