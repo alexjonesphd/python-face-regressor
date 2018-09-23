@@ -96,7 +96,7 @@ class Modeller():
 
         Parameters
         ----------
-        save_warp : During gathering, ecah image will be warped to the average facial shape. If a user wants to see these faces, setting this parameter
+        save_warp : During gathering, each image will be warped to the average facial shape. If a user wants to see these faces, setting this parameter
                     to True will save the warped version to disk.
 
         Returns
@@ -201,9 +201,17 @@ class Modeller():
         return self
 
 
-    def __assemble_multivariate(self, parameter_key, parameter_dims, gathered_data = None):
+    def assemble_multivariate(self, parameter_key, gathered_data = None):
         """Convenience function to extract from the gathered data and assemble the face parameters - shape and colour - and predictor values into a pair of arrays.
         Each array is matched on the rows to represent measurements of that face parameter and the predictors, for a subject.
+        
+        Parameters
+        ----------
+        parameter_key : A string used to specify the parameter of interest, which will access the gathered_data dictionary. Can take the following properties:
+                        'shape' - to access shape landmarks
+                        'channel_one' - access colour information in channel one
+                        'channel_two' - access colour information in channel two
+                        'channel_three' - access colour information in channel three
 
         Returns
         ----------
@@ -213,6 +221,12 @@ class Modeller():
 
         if gathered_data is None:
             gathered_data = self.gathered_data
+        
+        assert parameter_key in ['shape', 'channel_one', 'channel_two', 'channel_three'], "Invalid parameter key; must be 'shape', 'channel_one', 'channel_two', 'channel_three'."
+        if parameter_key == 'shape':
+            parameter_dims = self.template_dims
+        else:
+            parameter_dims = self.image_dims
 
         # Compute the dimensions of arrays #
 
@@ -306,10 +320,10 @@ class Modeller():
         # Compute weights and intercepts #
 
         # Prepare least squares arrays
-        shape_y, shape_x = self.__assemble_multivariate('shape', (n_landmarks, n_dims))
-        channel_one_y, channel_one_x = self.__assemble_multivariate('channel_one', (im_height, im_width))
-        channel_two_y, channel_two_x = self.__assemble_multivariate('channel_two', (im_height, im_width))
-        channel_three_y, channel_three_x = self.__assemble_multivariate('channel_three', (im_height, im_width))
+        shape_y, shape_x = self.assemble_multivariate('shape')
+        channel_one_y, channel_one_x = self.assemble_multivariate('channel_one')
+        channel_two_y, channel_two_x = self.assemble_multivariate('channel_two')
+        channel_three_y, channel_three_x = self.assemble_multivariate('channel_three')
 
         # Compute least squares solutions
         shape_slopes, shape_intercepts, shape_se = self.__calculate_slopes_intercept(shape_y, shape_x)
