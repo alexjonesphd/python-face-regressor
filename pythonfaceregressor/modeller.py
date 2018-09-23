@@ -201,7 +201,7 @@ class Modeller():
         return self
 
 
-    def assemble_multivariate(self, parameter_key, gathered_data = None):
+    def assemble_multivariate(self, parameter_key, gathered_data = None, as_frame = False):
         """Convenience function to extract from the gathered data and assemble the face parameters - shape and colour - and predictor values into a pair of arrays.
         Each array is matched on the rows to represent measurements of that face parameter and the predictors, for a subject.
         
@@ -212,6 +212,8 @@ class Modeller():
                         'channel_one' - access colour information in channel one
                         'channel_two' - access colour information in channel two
                         'channel_three' - access colour information in channel three
+                        
+        as_frame : Boolean determining whether the resulting arrays will be a NumPy array or a Pandas DataFrame. Default is False.
 
         Returns
         ----------
@@ -242,18 +244,27 @@ class Modeller():
         # Preallocate the arrays
         y_array = np.empty((n_obs, y_dims))
         x_array = np.empty((n_obs, x_dims))
+        face_id = []
 
         # Iterate over the dictionary values and extract, using enumerate to index preallocated arrays
         # The order the faces are returned is not important, but locking the paramater to the IV's is vital
-        for index, values in enumerate(gathered_data.values()):
+        for index, (face, values) in enumerate(gathered_data.values()):
 
             # Extract Y values, flatten and store
             y_array[index, :] = values[parameter_key].flatten()
 
             # Extract X values in exact order by iterating over trait list, which stores traits in order they appear in master
             x_array[index, :] = [values[trait] for trait in self.trait_list]
+            
+            # Store face id
+            face_id.append(face)
 
-        # Return
+        # Set up output
+        if as_frame:
+            y_array = pd.DataFrame(data=y_array, index=face_id)
+            x_array = pd.DataFrame(data=x_array, index=face_id, columns=self.trait_list)
+                                   
+        
         return y_array, x_array
 
 
