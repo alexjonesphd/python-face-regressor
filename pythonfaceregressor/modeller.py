@@ -248,7 +248,7 @@ class Modeller():
 
         # Iterate over the dictionary values and extract, using enumerate to index preallocated arrays
         # The order the faces are returned is not important, but locking the paramater to the IV's is vital
-        for index, (face, values) in enumerate(gathered_data.values()):
+        for index, (face, values) in enumerate(gathered_data.items()):
 
             # Extract Y values, flatten and store
             y_array[index, :] = values[parameter_key].flatten()
