@@ -511,12 +511,26 @@ class Modeller():
         return None
     
     
-    def return_arrays(self, as_frame = False):
-        """
+    def return_arrays(self, proc_fit_shape = False, as_frame = False):
+        """ Method to return a flattened representation of the shape and colour data, alongside respective measurements. This is useful for manual
+        exploration of the data outside of the Modeller class, for example in PCA or morphometric applications.
+        
+        Shape values are returned as floats, represented as follows: [pt0_X, pt0_Y, ..., ptN_X, ptN_y]
+        Colour values are returned as unsigned 8-bit integers, represented as follows: [pix0_R, pix0_G, pix0_B, ..., pixN_R, pixN_G, pixN_B]
+        
+        Parameters
+        ----------
+        proc_fit_shape : Returns the flattend shape array, but first subjects the shape data to a Procrustes fit, aligning to the average face. Note - this fit returns the coordinates in original scaling, not unit scaling.
+        as_frame : Returns the flattened data as Pandas DataFrames, with meaningful column headers and index. Default False.
+        
+        Returns
+        ----------
+        shape_array : Array or DataFrame representing flattened shape values. Rows are faces, columns landmarks. Size n_obs by n_landmarks * n_dimensions.
+        colour_array : Array or DataFrame representing flattened image pixel values. Rows are faces, columns landmarks. Size n_obs by image height * image width * 3.
+        param_array :  Array or DataFrame representing predictor values entered to Modeller class.
         """
         
         # Create empty arrays for shape, texture, and data
-        
         # Get number of rows
         n_obs = self.master_data_frame.shape[0]
         
@@ -545,7 +559,28 @@ class Modeller():
             
             # Store ID
             face_list.append(face)
+        
+        # Convert colour array to unsigned integer, keeping with image values
+        colour_array = colour_array.astype('uint8')
+        
+        # Carry out Procrustes fit if requested
+        if proc_fit_shape:
+            def proc(to_fit):
+                
+                # Reshape to_fit
+                to_fit = to_fit.reshape(self.template_dims)
+                
+                # Call procrustes
+                _, pr_fit, _ = procrustes(self.average_shape, to_fit)
+                
+                # Reverse scaling
+                pr_fit *= np.linalg.norm(to_fit - to_fit.mean(0))
+                pr_fit += to_fit.mean(0)
+                
+                return pr_fit.flatten()
             
+            shape_array = np.apply_along_axis(proc, 1, shape_array)
+                
         # Prepare the column names for the dataframes, if chosen
         if as_frame:
             shape_ids = (title for pt in range(0, self.template_dims[0]) for title in ['pt{}_X'.format(pt), 'pt{}_Y'.format(pt)])
