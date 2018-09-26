@@ -509,3 +509,53 @@ class Modeller():
                 tem_file.write( ' '.join( line_value ) + '\n' )
 
         return None
+    
+    
+    def return_arrays(self, as_frame = False):
+        """
+        """
+        
+        # Create empty arrays for shape, texture, and data
+        
+        # Get number of rows
+        n_obs = self.master_data_frame.shape[0]
+        
+        # Set number of columns for each output
+        n_landmarks = np.prod(self.template_dims)
+        n_pixels = np.prod(self.image_dims) * 3
+        n_params = self.master_data_frame.shape[1]
+        
+        # Prepare empty arrays to store the output, as well as a list for name indices
+        shape_array = np.empty((n_obs, n_landmarks))
+        colour_array = np.empty((n_obs, n_pixels))
+        param_array = np.empty((n_obs, n_params))
+        face_list = []
+        
+        # Populate the arrays
+        for index, (face, values) in enumerate(self.gathered_data.items()):
+            
+            # Get shape attributes
+            shape_array[index,:] = values['shape'].flatten()
+            
+            # Get colour attributes
+            colour_array[index,:] = np.dstack((values['channel_one'], values['channel_two'], values['channel_three'])).flatten()
+            
+            # Get parameters
+            param_array[index,:] = [values[measure] for measure in self.trait_list]
+            
+            # Store ID
+            face_list.append(face)
+            
+        # Prepare the column names for the dataframes, if chosen
+        if as_frame:
+            shape_ids = (title for pt in range(0, self.template_dims[0]) for title in ['pt{}_X'.format(pt), 'pt{}_Y'.format(pt)])
+            pixel_ids = (title for pt in range(0, np.prod(self.image_dims)) for title in ['px{}_R'.format(pt), 'px{}_G'.format(pt), 'px{}_B'.format(pt)])
+            param_ids = self.trait_list
+            
+            shape_array = pd.DataFrame(shape_array, index=face_list, columns=shape_ids)
+            colour_array = pd.DataFrame(colour_array, index=face_list, columns=pixel_ids)
+            param_array = pd.DataFrame(param_array, index=face_list, columns=param_ids)
+            
+        return shape_array, colour_array, param_array
+        
+        
