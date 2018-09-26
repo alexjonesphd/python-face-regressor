@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import skimage.io
 
+from scipy.spatial import procrustes
 from scipy.stats import zscore
 
 from . import warper
