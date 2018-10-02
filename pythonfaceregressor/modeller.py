@@ -521,7 +521,7 @@ class Modeller():
         
         Parameters
         ----------
-        proc_fit_shape : Returns the flattend shape array, but first subjects the shape data to a Procrustes fit, aligning to the average face. Note - this fit returns the coordinates in original scaling, not unit scaling.
+        proc_fit_shape : Returns the flattend shape array, but first subjects the shape data to a Procrustes fit, aligning to the average face shape computed during gathering.
         as_frame : Returns the flattened data as Pandas DataFrames, with meaningful column headers and index. Default False.
         
         Returns
@@ -573,10 +573,6 @@ class Modeller():
                 
                 # Call procrustes
                 _, pr_fit, _ = procrustes(self.average_shape, to_fit)
-                
-                # Reverse scaling
-                pr_fit *= np.linalg.norm(to_fit - to_fit.mean(0))
-                pr_fit += to_fit.mean(0)
                 
                 return pr_fit.flatten()
             
