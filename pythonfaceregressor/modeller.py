@@ -12,6 +12,7 @@ import skimage.io
 
 from scipy.spatial import procrustes
 from scipy.stats import zscore
+from skimage.color import rgb2lab
 
 from . import warper
 
@@ -512,22 +513,23 @@ class Modeller():
         return None
     
     
-    def return_arrays(self, proc_fit_shape = False, as_frame = False):
+    def return_arrays(self, proc_fit_shape = False, as_lab = False, as_frame = False):
         """ Method to return a flattened representation of the shape and colour data, alongside respective measurements. This is useful for manual
         exploration of the data outside of the Modeller class, for example in PCA or morphometric applications.
         
         Shape values are returned as floats, represented as follows: [pt0_X, pt0_Y, ..., ptN_X, ptN_y]
-        Colour values are returned as unsigned 8-bit integers, represented as follows: [pix0_R, pix0_G, pix0_B, ..., pixN_R, pixN_G, pixN_B]
+        Colour values are returned as unsigned 8-bit integers, represented as follows: [pix0_Ch1, pix0_Ch2, pix0_Ch3, ..., pixN_Ch1, pixN_Ch2, pixN_Ch3]
         
         Parameters
         ----------
         proc_fit_shape : Returns the flattend shape array, but first subjects the shape data to a Procrustes fit, aligning to the average face shape computed during gathering.
+        as_lab : Returns the flattened pixel array, but first converts the data into a CIEL*a*b* representation. Default False.
         as_frame : Returns the flattened data as Pandas DataFrames, with meaningful column headers and index. Default False.
         
         Returns
         ----------
         shape_array : Array or DataFrame representing flattened shape values. Rows are faces, columns landmarks. Size n_obs by n_landmarks * n_dimensions.
-        colour_array : Array or DataFrame representing flattened image pixel values. Rows are faces, columns landmarks. Size n_obs by image height * image width * 3.
+        colour_array : Array or DataFrame representing flattened image pixel values. Rows are faces, columns pixels. Size n_obs by image height * image width * 3.
         param_array :  Array or DataFrame representing predictor values entered to Modeller class.
         """
         
@@ -574,14 +576,32 @@ class Modeller():
                 # Call procrustes
                 _, pr_fit, _ = procrustes(self.average_shape, to_fit)
                 
+                # Returned flattened version
                 return pr_fit.flatten()
             
+            # Apply along axis of array
             shape_array = np.apply_along_axis(proc, 1, shape_array)
+            
+        # Carry out the LAB conversion if requested
+        if as_lab:
+            def lab(to_fit):
+                
+                # Reshape to standard size
+                shaped = to_fit.reshape(*self.image_dims, 3)
+                
+                # Apply LAB conversion
+                apply_lab = rgb2lab(shaped)
+                
+                # Flatten back down and return
+                return apply_lab.flatten()
+            
+            # Apply along axis of array
+            colour_array = np.apply_along_axis(lab, 1, colour_array)
                 
         # Prepare the column names for the dataframes, if chosen
         if as_frame:
             shape_ids = (title for pt in range(0, self.template_dims[0]) for title in ['pt{}_X'.format(pt), 'pt{}_Y'.format(pt)])
-            pixel_ids = (title for pt in range(0, np.prod(self.image_dims)) for title in ['px{}_R'.format(pt), 'px{}_G'.format(pt), 'px{}_B'.format(pt)])
+            pixel_ids = (title for pt in range(0, np.prod(self.image_dims)) for title in ['px{}_Ch1'.format(pt), 'px{}_Ch2'.format(pt), 'px{}_Ch3'.format(pt)])
             param_ids = self.trait_list
             
             shape_array = pd.DataFrame(shape_array, index=face_list, columns=shape_ids)
