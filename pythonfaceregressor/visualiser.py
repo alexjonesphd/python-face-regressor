@@ -7,7 +7,7 @@ import PIL.Image
 import numpy as np
 
 from bokeh.models import ColumnDataSource, HoverTool, Slider
-from bokeh.layouts import widgetbox, gridplot, layout
+from bokeh.layouts import widgetbox, row, layout
 from bokeh.plotting import figure
 from bokeh.io import show, output_notebook
 
@@ -39,9 +39,16 @@ def _image_tidy(face):
     return final_image
 
 
-def explore(model):
+def explore(model, display='combined'):
     """ Allows a user to explore the model outputs using Bokeh, using sliders to adjust predicted shape and texture variables.
     This function will NOT run outside of a Jupyter Notebook.
+
+    Parameters
+    ----------
+    model : an instance of the Modeller class on which .fit() has been called.
+
+    display : a string specifying the kind of data the user would like to see. Accepts 'texture' to just show texture changes or 'shape'
+              to visualise landmark deformation. The default argument visualises both shape and texture changing simultaneously.
     """
 
     # Set up the notebook output
@@ -77,7 +84,7 @@ def explore(model):
         warp_source = ColumnDataSource( {'image': [final_im]} )
 
         # Instantiate plot object for warped image - add a constant extra few pixels to make sure image is not squashed to window
-        warp_image_plot = figure(title = 'Predicted Face', y_range = (0, model.image_dims[0]+300), x_range = (0, model.image_dims[1]+300))
+        warp_image_plot = figure(title = 'Predicted Face', y_range = (0, model.image_dims[0]+150), x_range = (0, model.image_dims[1]+150))
         warp_image_plot.image_rgba(image = 'image', x=0, y=0, dw=model.image_dims[1], dh=model.image_dims[0], source=warp_source)
 
         # Set up a column data source for the texture-only face ###################
@@ -85,7 +92,7 @@ def explore(model):
         texture_source = ColumnDataSource( { 'image': [texture] } )
 
         # Instantiate plot object for shape-free face
-        image_plot = figure(title = 'Predicted Texture', y_range = (0, model.image_dims[0]+300), x_range = (0, model.image_dims[1]+300) )
+        image_plot = figure(title = 'Predicted Texture', y_range = (0, model.image_dims[0]+150), x_range = (0, model.image_dims[1]+150) )
         image_plot.image_rgba( image = 'image', x=0, y=0, dw=model.image_dims[1], dh=model.image_dims[0], source=texture_source)
         ###########################################################################
 
@@ -124,9 +131,10 @@ def explore(model):
             sliders.append(slider)
 
         ###########################################################################
+        # Set layout according to specification of user, extract from dictionary
+        layout_dict = {'combined':warp_image_plot, 'texture':image_plot, 'shape':shape_plot}
 
-        # Set layout
-        layout = gridplot([widgetbox(sliders), warp_image_plot], [image_plot, shape_plot])
+        layout = row([widgetbox(sliders), layout_dict[display]])
 
         # Update and add to curdoc
         doc.add_root(layout)
