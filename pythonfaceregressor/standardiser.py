@@ -10,10 +10,9 @@ import skimage.io
 import numpy as np
 
 def _convert_LMs(tem_file):
-    """User accessible version of Modeller's get_LMs function.
-    """
 
-    with open(tem_file, 'r') as file:
+    # Set context manager and read in file as bytes, given variability in encoding
+    with open(tem_file, 'rb') as file:
 
         # Convert the first line of the template file into an integer
         n_points = int( next( file ) )
@@ -24,9 +23,14 @@ def _convert_LMs(tem_file):
     # Slice this list up to the number of points, and set as np.ndarray
     lm_array = np.array( LMs[ 0:n_points ], dtype = 'float' )
 
-    # Capture line connection information
+    # Capture line connection information, and if captured convert to utf-8 encoding
     try:
+        # Slice main list
         line_info = LMs[n_points:]
+
+        # Convert elements to UTF-8
+        line_info = [[byte.decode('utf-8', errors='ignore') for byte in line] for line in line_info]
+
     except:
         line_info = None
 
