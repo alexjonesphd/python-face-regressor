@@ -67,8 +67,8 @@ class Modeller():
         """Convenience function to convert a template file into a numpy array.
         Returns the XY coordinates as an array, but also the trailing line data as a list of lists.
         """
-        # Read in the template file with base Python
-        with open( tem_file, 'r' ) as file:
+        # Read in the template file with base Python, treating it as bytecode due to variation in endcoding
+        with open( tem_file, 'rb' ) as file:
 
             # Convert the first line of the template file into an integer
             n_points = int( next( file ) )
@@ -81,7 +81,12 @@ class Modeller():
 
         # Slice the list to obtain the line data that follows the points - will return as a list-of-lists, else None
         try:
+            # Slice main list
             line_info = LMs[n_points:]
+
+            # Convert elements to UTF-8
+            line_info = [[byte.decode('utf-8', errors='ignore') for byte in line] for line in line_info]
+            
         except:
             line_info = None
 
