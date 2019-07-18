@@ -11,7 +11,7 @@ import pandas as pd
 import skimage.io
 
 from scipy.spatial import procrustes
-from scipy.stats import zscore
+from scipy.stats import zscore, t
 from skimage.color import rgb2lab
 
 from . import warper
@@ -71,13 +71,13 @@ class Modeller():
         with open( tem_file, 'rb' ) as file:
 
             # Convert the first line of the template file into an integer
-            n_points = int( next( file ) )
+            n_points = int(next(file))
 
             # Loop through remainder of the file, strip newlines, split by space for each line
-            LMs = [ line.strip().split() for line in file ]
+            LMs = [line.strip().split() for line in file]
 
         # Slice this list up to the number of points, and set as np.ndarray
-        lm_array = np.array( LMs[ 0:n_points ], dtype = 'float' )
+        lm_array = np.array(LMs[0:n_points], dtype='float')
 
         # Slice the list to obtain the line data that follows the points - will return as a list-of-lists, else None
         try:
@@ -86,14 +86,14 @@ class Modeller():
 
             # Convert elements to UTF-8
             line_info = [[byte.decode('utf-8', errors='ignore') for byte in line] for line in line_info]
-            
+
         except:
             line_info = None
 
         return lm_array, line_info
 
 
-    def gather_data(self, master_data_frame = None, template_extension = None, image_extension = None, save_warp = False):
+    def gather_data(self, master_data_frame=None, template_extension=None, image_extension=None, save_warp=False):
         """
         Method to build the data necessary for the face regression.
 
@@ -139,9 +139,9 @@ class Modeller():
             # Prepare the parameters that are entered into the dictionary #
             # Extract the landmarks from associated template file
             try:
-                xy, line_data = self.__get_LMs( face + template_extension )
+                xy, line_data = self.__get_LMs(face + template_extension)
             except FileNotFoundError:
-                raise ValueError( 'Missing template file for face: ' + face )
+                raise ValueError('Missing template file for face: ' + face)
 
             gathered[face] = {'shape' : xy}
 
@@ -153,15 +153,15 @@ class Modeller():
 
             # Read in colour image
             try:
-                im = skimage.io.imread( face + image_extension )
+                im = skimage.io.imread(face + image_extension)
             except:
-                raise ValueError( 'Missing image file for face: ' + face )
+                raise ValueError('Missing image file for face: ' + face)
 
             # Apply the image warping to standardise shape
             try:
                 warp_im = warper.warp(im, gathered[face]['shape'], im, average_shape)
             except:
-                print('Facial landmarks out of bounds for image {}. Continuing to gather data, but this image is not standardised. Recrop and align points, then re-gather to include.'.format( face ) )
+                print('Facial landmarks out of bounds for image {}. Continuing to gather data, but this image is not standardised. Recrop and align points, then re-gather to include.'.format(face))
                 warp_im = im
 
             # Save if required
@@ -169,24 +169,24 @@ class Modeller():
                 skimage.io.imsave(face + '_aligned' + image_extension, warp_im)
 
             # Create an entry, and add in the parameters from the shape and image data above
-            entry = {'channel_one' : warp_im[:,:,0], 'channel_two' : warp_im[:,:,1], 'channel_three' : warp_im[:,:,2]  }
+            entry = {'channel_one' : warp_im[:,:,0], 'channel_two' : warp_im[:,:,1], 'channel_three' : warp_im[:,:,2]}
 
             # Extract the trait information from the master data frame as a dictionary
-            traits = master_data_frame.loc[ face ].to_dict()
+            traits = master_data_frame.loc[face].to_dict()
 
             # Update the entry to hold the trait information
-            entry.update( traits )
+            entry.update(traits)
 
             # Finally store in the dictionary alongside the earlier shape information
-            gathered[ face ].update(entry)
+            gathered[face].update(entry)
 
         # Check all arrays are the same size. Cheat a little by calling set on the returned shape arrays from the dictionary - if this is greater than 1, we know we have a different shape somewhere
-        assert len( set( gathered[ face ][ 'shape' ].shape for face in gathered ) ) == 1, 'Input shape arrays are not all identical in dimensions. Check template files before calling .fit().'
-        assert len( set( gathered[ face ][ 'channel_one' ].shape for face in gathered ) ) == 1, 'Input image arrays are not all identical in dimensions. Check image files before calling .fit().'
+        assert len(set(gathered[face]['shape'].shape for face in gathered)) == 1, 'Input shape arrays are not all identical in dimensions. Check template files before calling .fit().'
+        assert len(set(gathered[face]['channel_one'].shape for face in gathered)) == 1, 'Input image arrays are not all identical in dimensions. Check image files before calling .fit().'
 
         # Set attributes - store sizes of shape and image arrays
-        self.template_dims = gathered[ face ][ 'shape' ].shape
-        self.image_dims = gathered[ face ][ 'channel_one' ].shape
+        self.template_dims = gathered[face]['shape'].shape
+        self.image_dims = gathered[face]['channel_one'].shape
 
         # Give the object access to the line data
         self.line_data = line_data
@@ -195,10 +195,10 @@ class Modeller():
         self.average_shape = average_shape
 
         # Compute the average face appearance and give object access
-        R = np.dstack( [gathered[face]['channel_one'] for face in gathered] ).mean(axis = 2)
-        G = np.dstack( [gathered[face]['channel_two'] for face in gathered] ).mean(axis = 2)
-        B = np.dstack( [gathered[face]['channel_three'] for face in gathered] ).mean(axis = 2)
-        image = np.dstack( (R, G, B) )
+        R = np.dstack([gathered[face]['channel_one'] for face in gathered]).mean(axis = 2)
+        G = np.dstack([gathered[face]['channel_two'] for face in gathered]).mean(axis = 2)
+        B = np.dstack([gathered[face]['channel_three'] for face in gathered]).mean(axis = 2)
+        image = np.dstack((R, G, B))
 
         self.average_face = image.astype('uint8')
 
@@ -208,10 +208,10 @@ class Modeller():
         return self
 
 
-    def assemble_multivariate(self, parameter_key, gathered_data = None, as_frame = False):
+    def assemble_multivariate(self, parameter_key, gathered_data=None, as_frame=False):
         """Convenience function to extract from the gathered data and assemble the face parameters - shape and colour - and predictor values into a pair of arrays.
         Each array is matched on the rows to represent measurements of that face parameter and the predictors, for a subject.
-        
+
         Parameters
         ----------
         parameter_key : A string used to specify the parameter of interest, which will access the gathered_data dictionary. Can take the following properties:
@@ -219,18 +219,18 @@ class Modeller():
                         'channel_one' - access colour information in channel one
                         'channel_two' - access colour information in channel two
                         'channel_three' - access colour information in channel three
-                        
+
         as_frame : Boolean determining whether the resulting arrays will be a NumPy array or a Pandas DataFrame. Default is False.
 
         Returns
         ----------
         y_array : An array containing the measured parameters for the faces, either shape or colour values, a row per observation. Data is extracted from the gathered data.
-        x_array : An array containing predictor values, matched on the rows to the faces. 
+        x_array : An array containing predictor values, matched on the rows to the faces.
         """
 
         if gathered_data is None:
             gathered_data = self.gathered_data
-        
+
         assert parameter_key in ['shape', 'channel_one', 'channel_two', 'channel_three'], "Invalid parameter key; must be 'shape', 'channel_one', 'channel_two', 'channel_three'."
         if parameter_key == 'shape':
             parameter_dims = self.template_dims
@@ -238,7 +238,6 @@ class Modeller():
             parameter_dims = self.image_dims
 
         # Compute the dimensions of arrays #
-
         # N obs is the number of rows in master data
         n_obs = self.master_data_frame.shape[0]
 
@@ -262,7 +261,7 @@ class Modeller():
 
             # Extract X values in exact order by iterating over trait list, which stores traits in order they appear in master
             x_array[index, :] = [values[trait] for trait in self.trait_list]
-            
+
             # Store face id
             face_id.append(face)
 
@@ -270,37 +269,52 @@ class Modeller():
         if as_frame:
             y_array = pd.DataFrame(data=y_array, index=face_id)
             x_array = pd.DataFrame(data=x_array, index=face_id, columns=self.trait_list)
-                                   
+
         return y_array, x_array
 
 
-    def __calculate_slopes_intercept(self, y_array, x_array):
+    def __calculate_slopes_intercept(self, x_array, y_array):
         """ Calculates the slopes and intercepts for the predictors and features given. To speed things up drastically, coefficients are calculated
         using NumPy linear algebra functions, which are extremely well optimised.
         """
 
-        # Add in a column of ones to the input predictors to provide an estimate of the intercept.
+        # Add in a column of ones to input predictors to provide intercept estimate
         constant_term = np.column_stack((np.ones(x_array.shape[0]), x_array))
 
-        # Using matrix algebra, decompose into linear function - first row is intercept of all values, second row onwards are slopes for each point/pixel
-        coefs, residual, _, _ = np.linalg.lstsq(constant_term, y_array, rcond = -1)
+        # Compute the multivariate least squares solution
+        coefs, ssr, _, _ = np.linalg.lstsq(constant_term, y_array, rcond=None)
 
-        # Calculate residual degrees of freedom of regression - N samples minus constant term's number of coefs (predictors plus intercept term)
-        df_total = x_array.shape[0] - 1
-        df_model = x_array.shape[1] - 1 # Subtract one for intercept
-        df_error = df_total - df_model
+        # Compute the residual degrees of freedom - n minus number of params, so if intercept is included = rows - columns
+        df_resid = constant_term.shape[0] - constant_term.shape[1]
+
+        # Compute the MSE by dividing SSR by DF residuals
+        mse = ssr/df_resid
+
+        # Compute standard errors #
+        # Invert inner product matrix of predictors
+        x_inv = np.linalg.inv(constant_term.T @ constant_term)
+
+        # Each MSE must be multiplied by inverse inner product of predictors, sqrt of diagonal taken, and transposed to match shape of coefs.
+        sem = np.array([np.sqrt(np.diag(x * x_inv)) for x in mse]).T
+
+        # T statistics are obtained by dividing coefs over SE
+        student = coefs/sem
+
+        # Finally, p values are computed by generating a T distribution with DF equal to DF residual, and passing absolute values to the survival function (how likley to find a bigger coef?). Multiply by 2 for two tailed test.
+        pvals = 2 * t(df_resid).sf(np.abs(student))
 
         # Get the slope and intercept by indexing
         intercept = coefs[0,:] # First row is the intercept
         slopes = coefs[1:,:] # From second row to end are slopes
 
-        # Finally compute the standard error of the predictions, sqrt of residual divided by residual DF
-        stand_err = np.sqrt(residual/df_error)
+        # Do not return the t or p value of the intercepts, as they are generally uninterpretable
+        student = student[1:,:]
+        pvals = pvals[1:,:]
 
-        return slopes, intercept, stand_err
+        return slopes, intercept, student, pvals
 
 
-    def fit(self, template_dims = None, image_dims = None, n_preds = None):
+    def fit(self, template_dims=None, image_dims=None, n_preds=None):
         """ The workhorse of the class. Fits a regression to each element of the shape and texture data, producing a multidimensional array that
         represents the slopes and intercepts of each element (e.g. red pixel (0, 0), y coordinate of landmark number 4, etc). This can later be utilised
         by the `.predict` function produce predicted faces.
@@ -313,12 +327,14 @@ class Modeller():
                             Entries in this array represent the regression weight of that point for that predictor.
         self.shape_intercepts : A m*n array, where axis 0 is the number of landmarks, axis 1 is the number of dimensions (2 or 3).
                             Entries in this array represent the regression intercept for that point. If standardise_impute was called, this value would be the average value in this location.
-        self.shape_se : A m*n array, where axis 0 is the number of landmarks, axis 1 is the number of dimensions (2 or 3).
-                            Entries in this array represent the standard error of the estimate for the regression equation - the mean accuracy of the prediction in that location, in units of the predicted values.
+        self.shape_student : A m*n array, where axis 0 is the number of landmarks, axis 1 is the number of dimensions (2 or 3).
+                            Entries in this array represent the calculated Students T statistic for the coefficient representing that specific location. Note intercept T values are not returned.
+        self.shape_pvals : A m*n array,  m*n array, where axis 0 is the number of landmarks, axis 1 is the number of dimensions (2 or 3).
+                            Entries in this array represent the p value of the coefficients in that location.
 
         The above attributes are also available for the three colour channels, describing image properties. For example:
 
-        self.red_channel_slopes: A l*m*n array, where axis 0 is the number of landmarks, axis 1 is the number of dimensions (2 or 3) and axis 2 is the number of predictors.
+        self.red_channel_slopes: A l*m*n array, where axis 0 is the number of pixels, axis 1 is the number of dimensions (2 or 3) and axis 2 is the number of predictors.
                             Entries in this array represent the regression weight of that pixel value, for that predictor.
 
         """
@@ -343,36 +359,40 @@ class Modeller():
         channel_three_y, channel_three_x = self.assemble_multivariate('channel_three')
 
         # Compute least squares solutions
-        shape_slopes, shape_intercepts, shape_se = self.__calculate_slopes_intercept(shape_y, shape_x)
-        red_channel_slopes, red_channel_intercepts, red_channel_se = self.__calculate_slopes_intercept(channel_one_y, channel_one_x)
-        green_channel_slopes, green_channel_intercepts, green_channel_se = self.__calculate_slopes_intercept(channel_two_y, channel_two_x)
-        blue_channel_slopes, blue_channel_intercepts, blue_channel_se = self.__calculate_slopes_intercept(channel_three_y, channel_three_x)
+        shape_slopes, shape_intercepts, shape_student, shape_pvals = self.__calculate_slopes_intercept(shape_x, shape_y)
+        red_channel_slopes, red_channel_intercepts, red_channel_student, red_channel_pvals = self.__calculate_slopes_intercept(channel_one_x, channel_one_y)
+        green_channel_slopes, green_channel_intercepts, green_channel_student, green_channel_pvals = self.__calculate_slopes_intercept(channel_two_x, channel_two_y)
+        blue_channel_slopes, blue_channel_intercepts, blue_channel_student, blue_channel_pvals = self.__calculate_slopes_intercept(channel_three_x, channel_three_y)
 
         # Reshape to the dimensions of the model's inputs
-        self.shape_slopes = np.swapaxes(shape_slopes,0,1).reshape(n_landmarks, n_dims, n_preds)
+        self.shape_slopes = np.swapaxes(shape_slopes, 0, 1).reshape(n_landmarks, n_dims, n_preds)
         self.shape_intercepts = shape_intercepts.reshape(n_landmarks, n_dims)
-        self.shape_se = shape_se.reshape(n_landmarks, n_dims)
+        self.shape_student = np.swapaxes(shape_student, 0, 1).reshape(n_landmarks, n_dims, n_preds)
+        self.shape_pvals = np.swapaxes(shape_pvals, 0, 1).reshape(n_landmarks, n_dims, n_preds)
 
         self.red_channel_slopes = np.swapaxes(red_channel_slopes, 0, 1).reshape(im_height, im_width, n_preds)
         self.red_channel_intercepts = red_channel_intercepts.reshape(im_height, im_width)
-        self.red_channel_se = red_channel_se.reshape(im_height, im_width)
+        self.red_channel_student = np.swapaxes(red_channel_student, 0, 1).reshape(im_height, im_width, n_preds)
+        self.red_channel_pvals = np.swapaxes(red_channel_pvals, 0, 1).reshape(im_height, im_width, n_preds)
 
         self.green_channel_slopes = np.swapaxes(green_channel_slopes, 0, 1).reshape(im_height, im_width, n_preds)
         self.green_channel_intercepts = green_channel_intercepts.reshape(im_height, im_width)
-        self.green_channel_se = green_channel_se.reshape(im_height, im_width)
+        self.green_channel_student = np.swapaxes(green_channel_student, 0, 1).reshape(im_height, im_width, n_preds)
+        self.green_channel_pvals = np.swapaxes(green_channel_pvals, 0, 1).reshape(im_height, im_width, n_preds)
 
         self.blue_channel_slopes = np.swapaxes(blue_channel_slopes, 0, 1).reshape(im_height, im_width, n_preds)
         self.blue_channel_intercepts = blue_channel_intercepts.reshape(im_height, im_width)
-        self.blue_channel_se = blue_channel_se.reshape(im_height, im_width)
+        self.blue_channel_student = np.swapaxes(blue_channel_student, 0, 1).reshape(im_height, im_width, n_preds)
+        self.blue_channel_pvals = np.swapaxes(blue_channel_pvals, 0, 1).reshape(im_height, im_width, n_preds)
 
         return self
 
 
-    def predict(self, average_shape = None, shape_slopes = None, shape_intercepts = None,
-                red_slopes = None, red_intercepts = None,
-                green_slopes = None, green_intercepts = None,
-                blue_slopes = None, blue_intercepts = None,
-                mapping = None, **predict_values):
+    def predict(self, average_shape=None, shape_slopes=None, shape_intercepts=None,
+                red_slopes=None, red_intercepts=None,
+                green_slopes = None, green_intercepts=None,
+                blue_slopes=None, blue_intercepts=None,
+                mapping=None, **predict_values):
         """ Method that produces predicted faces from the fitted data, for users to save or interact with.
 
         Parameters
@@ -407,24 +427,24 @@ class Modeller():
 
         # COPY the fitted data below, as broadcasting will modify the original arrays due to Python pass-by-reference
         if shape_slopes is None:
-            shape_slopes = np.copy( self.shape_slopes )
+            shape_slopes = np.copy(self.shape_slopes)
 
         if red_slopes is None:
-            red_slopes = np.copy( self.red_channel_slopes )
+            red_slopes = np.copy(self.red_channel_slopes)
         if green_slopes is None:
-            green_slopes = np.copy( self.green_channel_slopes )
+            green_slopes = np.copy(self.green_channel_slopes)
         if blue_slopes is None:
-            blue_slopes = np.copy( self.blue_channel_slopes )
+            blue_slopes = np.copy(self.blue_channel_slopes)
 
         if shape_intercepts is None:
-            shape_intercepts = np.copy( self.shape_intercepts )
+            shape_intercepts = np.copy(self.shape_intercepts)
 
         if red_intercepts is None:
-            red_intercepts = np.copy( self.red_channel_intercepts )
+            red_intercepts = np.copy(self.red_channel_intercepts)
         if green_intercepts is None:
-            green_intercepts = np.copy( self.green_channel_intercepts )
+            green_intercepts = np.copy(self.green_channel_intercepts)
         if blue_intercepts is None:
-            blue_intercepts = np.copy( self.blue_channel_intercepts )
+            blue_intercepts = np.copy(self.blue_channel_intercepts)
 
 
         # Create an empty list to return the formula string, or traits that were specified to be multiplied by a constant
@@ -434,13 +454,13 @@ class Modeller():
         for traits in predict_values: # Iterate over the keywords provided
 
             # Retrieve the index from the index map - so, if user provided 'Extra' for example, this will extract 'Extra' from the index map and the dimension where Extraversion is stored in the slope matrix
-            index = mapping[ traits ]
+            index = mapping[traits]
 
             # Retrieve the broadcast factor again using the keyword provided, this will extract the value to be predicted from the keyword dictionary.
-            broadcast = predict_values[ traits ]
+            broadcast = predict_values[traits]
 
             # Make the string and append it, joining with an underscore
-            form_str.append( traits + '_' + str( broadcast ) )
+            form_str.append(traits + '_' + str(broadcast))
 
             # Carry out broadcasting - finally, this will take the index and slice the slope_matrix array, broadcasting the predicted value across all slopes and reassigning it.
             shape_slopes[:, :, index] *= broadcast
@@ -452,14 +472,14 @@ class Modeller():
         ax = red_slopes.ndim - 1
 
         # Compute the sum across the slopes, and add on the intercept matrix, to complete the regression formula and obtain predicted values
-        final_shape = shape_slopes.sum( axis = ax ) + shape_intercepts
+        final_shape = shape_slopes.sum(axis=ax) + shape_intercepts
 
-        final_red = red_slopes.sum( axis = ax ) + red_intercepts
-        final_green = green_slopes.sum( axis = ax ) + green_intercepts
-        final_blue = blue_slopes.sum( axis = ax ) + blue_intercepts
+        final_red = red_slopes.sum(axis=ax) + red_intercepts
+        final_green = green_slopes.sum(axis=ax) + green_intercepts
+        final_blue = blue_slopes.sum(axis=ax) + blue_intercepts
 
         # Combine colour channels into one, set dtype
-        texture_image = np.dstack( (final_red, final_green, final_blue) ).astype('uint8')
+        texture_image = np.dstack((final_red, final_green, final_blue)).astype('uint8')
 
         # Warp the texure image to average shape
         final_image = warper.warp(texture_image, average_shape, texture_image, final_shape)
@@ -470,7 +490,7 @@ class Modeller():
         return formula, final_image, final_shape, texture_image
 
 
-    def save_predictions(self, formula_string, predicted_texture, predicted_shape, line_data = None):
+    def save_predictions(self, formula_string, predicted_texture, predicted_shape, line_data=None):
         """ Method to save the predicted images and associated shape files. Method will automatically append the trailing line data from a .tem file.
         Inputs can be passed directly from the .predict method, and image and shape file extensions are automatically inferred from input data.
 
@@ -491,128 +511,126 @@ class Modeller():
         image_name = formula_string + self.__image_extension
 
         # Check the predicted inputs and tidy up for output - formatting the templates and clipping the images
-        predicted_shape = predicted_shape.round(decimals = 3).astype('str').tolist()
-        np.clip( predicted_texture, 0, 255, out = predicted_texture )
+        predicted_shape = predicted_shape.round(decimals=3).astype('str').tolist()
+        np.clip( predicted_texture, 0, 255, out=predicted_texture )
 
         # Write the image out
-        skimage.io.imsave( image_name, predicted_texture )
+        skimage.io.imsave(image_name, predicted_texture)
 
         # Write the template file
-        with open( tem_name, 'w' ) as tem_file:
+        with open(tem_name, 'w') as tem_file:
 
             # Write the numner of points by calculating the length, or number of points, of the predicted values
-            tem_file.write( '%s\n' % len ( predicted_shape ) )
+            tem_file.write('%s\n' % len(predicted_shape))
 
             # Loop over the array and write out - the predicted matrix is now a list-of-lists
             for line in predicted_shape:
 
                 # Join lines with tab and add new line
-                tem_file.write( '\t'.join( line ) + '\n' )
+                tem_file.write('\t'.join(line) + '\n')
 
             # Write the line data string provided in line_info using similar method as above, calling the object attribute here
             for line_value in line_data:
 
                 # Make string to be printed, then print
-                tem_file.write( ' '.join( line_value ) + '\n' )
+                tem_file.write(' '.join(line_value) + '\n')
 
         return None
-    
-    
+
+
     def return_arrays(self, proc_fit_shape = False, as_lab = False, as_frame = False):
         """ Method to return a flattened representation of the shape and colour data, alongside respective measurements. This is useful for manual
         exploration of the data outside of the Modeller class, for example in PCA or morphometric applications.
-        
+
         Shape values are returned as floats, represented as follows: [pt0_X, pt0_Y, ..., ptN_X, ptN_y]
         Colour values are returned as unsigned 8-bit integers, represented as follows: [pix0_Ch1, pix0_Ch2, pix0_Ch3, ..., pixN_Ch1, pixN_Ch2, pixN_Ch3]
-        
+
         Parameters
         ----------
         proc_fit_shape : Returns the flattend shape array, but first subjects the shape data to a Procrustes fit, aligning to the average face shape computed during gathering.
         as_lab : Returns the flattened pixel array, but first converts the data into a CIEL*a*b* representation. Default False.
         as_frame : Returns the flattened data as Pandas DataFrames, with meaningful column headers and index. Default False.
-        
+
         Returns
         ----------
         shape_array : Array or DataFrame representing flattened shape values. Rows are faces, columns landmarks. Size n_obs by n_landmarks * n_dimensions.
         colour_array : Array or DataFrame representing flattened image pixel values. Rows are faces, columns pixels. Size n_obs by image height * image width * 3.
         param_array :  Array or DataFrame representing predictor values entered to Modeller class.
         """
-        
+
         # Create empty arrays for shape, texture, and data
         # Get number of rows
         n_obs = self.master_data_frame.shape[0]
-        
+
         # Set number of columns for each output
         n_landmarks = np.prod(self.template_dims)
         n_pixels = np.prod(self.image_dims) * 3
         n_params = self.master_data_frame.shape[1]
-        
+
         # Prepare empty arrays to store the output, as well as a list for name indices
         shape_array = np.empty((n_obs, n_landmarks))
         colour_array = np.empty((n_obs, n_pixels))
         param_array = np.empty((n_obs, n_params))
         face_list = []
-        
+
         # Populate the arrays
         for index, (face, values) in enumerate(self.gathered_data.items()):
-            
+
             # Get shape attributes
             shape_array[index,:] = values['shape'].flatten()
-            
+
             # Get colour attributes
             colour_array[index,:] = np.dstack((values['channel_one'], values['channel_two'], values['channel_three'])).flatten()
-            
+
             # Get parameters
             param_array[index,:] = [values[measure] for measure in self.trait_list]
-            
+
             # Store ID
             face_list.append(face)
-        
+
         # Convert colour array to unsigned integer, keeping with image values
         colour_array = colour_array.astype('uint8')
-        
+
         # Carry out Procrustes fit if requested
         if proc_fit_shape:
             def proc(to_fit):
-                
+
                 # Reshape to_fit
                 to_fit = to_fit.reshape(self.template_dims)
-                
+
                 # Call procrustes
                 _, pr_fit, _ = procrustes(self.average_shape, to_fit)
-                
+
                 # Returned flattened version
                 return pr_fit.flatten()
-            
+
             # Apply along axis of array
             shape_array = np.apply_along_axis(proc, 1, shape_array)
-            
+
         # Carry out the LAB conversion if requested
         if as_lab:
             def lab(to_fit):
-                
+
                 # Reshape to standard size
                 shaped = to_fit.reshape(*self.image_dims, 3)
-                
+
                 # Apply LAB conversion
                 apply_lab = rgb2lab(shaped)
-                
+
                 # Flatten back down and return
                 return apply_lab.flatten()
-            
+
             # Apply along axis of array
             colour_array = np.apply_along_axis(lab, 1, colour_array)
-                
+
         # Prepare the column names for the dataframes, if chosen
         if as_frame:
             shape_ids = (title for pt in range(0, self.template_dims[0]) for title in ['pt{}_X'.format(pt), 'pt{}_Y'.format(pt)])
             pixel_ids = (title for pt in range(0, np.prod(self.image_dims)) for title in ['px{}_Ch1'.format(pt), 'px{}_Ch2'.format(pt), 'px{}_Ch3'.format(pt)])
             param_ids = self.trait_list
-            
+
             shape_array = pd.DataFrame(shape_array, index=face_list, columns=shape_ids)
             colour_array = pd.DataFrame(colour_array, index=face_list, columns=pixel_ids)
             param_array = pd.DataFrame(param_array, index=face_list, columns=param_ids)
-            
+
         return shape_array, colour_array, param_array
-        
-        
