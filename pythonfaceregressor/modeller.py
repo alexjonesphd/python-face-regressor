@@ -273,7 +273,7 @@ class Modeller():
         return y_array, x_array
 
 
-    def __calculate_slopes_intercept(self, x_array, y_array):
+    def __calculate_slopes_intercept(self, x_array, y_array, background_correction):
         """ Calculates the slopes and intercepts for the predictors and features given. To speed things up drastically, coefficients are calculated
         using NumPy linear algebra functions, which are extremely well optimised.
         """
@@ -297,8 +297,11 @@ class Modeller():
         # Each MSE must be multiplied by inverse inner product of predictors, sqrt of diagonal taken, and transposed to match shape of coefs.
         sem = np.array([np.sqrt(np.diag(x * x_inv)) for x in mse]).T
 
+        # Due to images having constant pixels (e.g. backgrounds), replace their zero SEM with a large number to ensure they are not significant but division is not broken by zero
+        corrected_sem = np.where(sem == 0, background_correction, sem)
+
         # T statistics are obtained by dividing coefs over SE
-        student = coefs/sem
+        student = coefs/corrected_sem
 
         # Finally, p values are computed by generating a T distribution with DF equal to DF residual, and passing absolute values to the survival function (how likley to find a bigger coef?). Multiply by 2 for two tailed test.
         pvals = 2 * t(df_resid).sf(np.abs(student))
@@ -314,7 +317,7 @@ class Modeller():
         return slopes, intercept, student, pvals
 
 
-    def fit(self, template_dims=None, image_dims=None, n_preds=None):
+    def fit(self, template_dims=None, image_dims=None, n_preds=None, background_correction=10000):
         """ The workhorse of the class. Fits a regression to each element of the shape and texture data, producing a multidimensional array that
         represents the slopes and intercepts of each element (e.g. red pixel (0, 0), y coordinate of landmark number 4, etc). This can later be utilised
         by the `.predict` function produce predicted faces.
@@ -359,10 +362,10 @@ class Modeller():
         channel_three_y, channel_three_x = self.assemble_multivariate('channel_three')
 
         # Compute least squares solutions
-        shape_slopes, shape_intercepts, shape_student, shape_pvals = self.__calculate_slopes_intercept(shape_x, shape_y)
-        red_channel_slopes, red_channel_intercepts, red_channel_student, red_channel_pvals = self.__calculate_slopes_intercept(channel_one_x, channel_one_y)
-        green_channel_slopes, green_channel_intercepts, green_channel_student, green_channel_pvals = self.__calculate_slopes_intercept(channel_two_x, channel_two_y)
-        blue_channel_slopes, blue_channel_intercepts, blue_channel_student, blue_channel_pvals = self.__calculate_slopes_intercept(channel_three_x, channel_three_y)
+        shape_slopes, shape_intercepts, shape_student, shape_pvals = self.__calculate_slopes_intercept(shape_x, shape_y, background_correction)
+        red_channel_slopes, red_channel_intercepts, red_channel_student, red_channel_pvals = self.__calculate_slopes_intercept(channel_one_x, channel_one_y, background_correction)
+        green_channel_slopes, green_channel_intercepts, green_channel_student, green_channel_pvals = self.__calculate_slopes_intercept(channel_two_x, channel_two_y, background_correction)
+        blue_channel_slopes, blue_channel_intercepts, blue_channel_student, blue_channel_pvals = self.__calculate_slopes_intercept(channel_three_x, channel_three_y, background_correction)
 
         # Reshape to the dimensions of the model's inputs
         self.shape_slopes = np.swapaxes(shape_slopes, 0, 1).reshape(n_landmarks, n_dims, n_preds)
